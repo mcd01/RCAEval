@@ -1,4 +1,5 @@
 from datetime import datetime
+from itertools import product
 import json
 import pathlib
 import shutil
@@ -137,6 +138,100 @@ def download_online_boutique_dataset(local_path=None):
 ###################################################
 # LLM Ref Stack
 def prepare_llm_ref_stack_dataset(local_root_path, dataset_name):
+    def _create_tracets_infos(traces_df: pd.DataFrame, window_size_ms: int = 5000, success: bool = True):
+        # Define all possible service_method combinations
+        traces_df["service_method"] = traces_df["serviceName"] + "_" + traces_df["methodName"]
+        all_service_methods = traces_df["service_method"].dropna().unique()
+        # Compute time windows for ALL rows first to capture full time range
+        traces_df["time_window"] = (traces_df["startTimeMillis"] // window_size_ms) * (window_size_ms // 1000)
+        all_time_windows = traces_df["time_window"].unique()
+        # Define success or failure filter
+        if success:
+            filtered_df = traces_df[(traces_df["statusCode"] >= 200) & (traces_df["statusCode"] < 300)]
+        else:
+            filtered_df = traces_df[~((traces_df["statusCode"] >= 200) & (traces_df["statusCode"] < 300))]
+
+        if filtered_df.empty:
+            zero_data = {sm: [0]*len(all_time_windows) for sm in all_service_methods}
+            zero_data["time"] = sorted(all_time_windows)
+            result_df = pd.DataFrame(zero_data)
+            # Reorder columns
+            cols_sorted = ["time"] + sorted(all_service_methods)
+            return result_df[cols_sorted]
+        # Group and count within filtered_df
+        grouped = (
+            filtered_df.groupby(["time_window", "service_method"])
+            .size()
+            .reset_index(name="count")
+        )
+        # Create full index of all time windows x service_method combinations
+        full_index = pd.DataFrame(list(product(all_time_windows, all_service_methods)), columns=["time_window", "service_method"])
+        # Merge grouped counts onto full index to ensure completeness
+        merged = pd.merge(full_index, grouped, on=["time_window", "service_method"], how="left").fillna(0)
+        # Pivot to wide format
+        result_df = merged.pivot_table(
+            index="time_window",
+            columns="service_method",
+            values="count",
+            fill_value=0
+        ).reset_index().rename(columns={"time_window": "time"})
+        # Ensure all service_method columns exist in the dataframe
+        for col in all_service_methods:
+            if col not in result_df.columns:
+                result_df[col] = 0
+        # Sort rows by time
+        result_df = result_df.sort_values("time")
+        # Sort columns for readability (time first, then services alphabetically)
+        cols_sorted = ["time"] + sorted(all_service_methods)
+        result_df = result_df[cols_sorted]
+        return result_df
+    
+    def _create_logts_infos(logs_df: pd.DataFrame, window_size_ms: int = 5000):
+        # Define all containers
+        all_containers = logs_df["container_name"].unique()
+        # Compute time windows for ALL rows to capture full time range
+        logs_df["time_window"] = (logs_df["timestamp"] // 1_000_000 // window_size_ms) * (window_size_ms // 1000)
+        all_time_windows = logs_df["time_window"].unique()
+        # Group and count logs
+        grouped = (
+            logs_df.groupby(["time_window", "container_name"])
+            .size()
+            .reset_index(name="count")
+        )
+        # Create full index of all time_window x container combinations
+        full_index = pd.DataFrame(list(product(all_time_windows, all_containers)), columns=["time_window", "container_name"])
+        # Merge grouped counts onto full index to ensure completeness
+        merged = pd.merge(full_index, grouped, on=["time_window", "container_name"], how="left").fillna(0)
+        # Pivot to wide format
+        result_df = merged.pivot_table(
+            index="time_window",
+            columns="container_name",
+            values="count",
+            fill_value=0
+        ).reset_index().rename(columns={"time_window": "time"})
+        # Ensure all container columns exist in the dataframe
+        for col in all_containers:
+            if col not in result_df.columns:
+                result_df[col] = 0
+        # Sort rows by time
+        result_df = result_df.sort_values("time")
+        # Sort columns for readability (time first, then containers alphabetically)
+        cols_sorted = ["time"] + sorted([c for c in result_df.columns if c != "time"])
+        result_df = result_df[cols_sorted]
+        return result_df
+
+    def _transform_logs(logs_df):
+        target_columns = {
+            "time": "time",
+            "container": "container_name",
+            "msg": "message",
+        }
+        logs_df = logs_df.rename(columns=target_columns)
+        logs_df = logs_df.drop(columns=[c for c in list(logs_df.columns) if c not in list(target_columns.values())])
+        logs_df["time"] = pd.to_datetime(logs_df["time"], format="mixed")
+        logs_df["timestamp"] = logs_df["time"].astype("int64")
+        return logs_df
+
     def _transform_traces(data_df, traces_df):
         pod_ip_map_dict = {}
         pod_ip_cols = [c for c in list(data_df.columns) if c.endswith("pod_ip")]
@@ -164,6 +259,8 @@ def prepare_llm_ref_stack_dataset(local_root_path, dataset_name):
         traces_df["serviceName"] = traces_df["serviceName"].map(lambda x: pod_ip_map_dict.get(x, np.nan))
         traces_df = traces_df[traces_df["traceID"].notna()]
         traces_df = traces_df[traces_df["serviceName"].notna()]
+        traces_df = traces_df[traces_df["operationName"].notna()]
+        traces_df = traces_df[traces_df["methodName"].notna()]
         assert traces_df["serviceName"].isin(list(pod_ip_map_dict.values())).all()
         return traces_df
     
@@ -175,6 +272,14 @@ def prepare_llm_ref_stack_dataset(local_root_path, dataset_name):
         elif 'network-stress' in folder_name:
             return 'network-stress', 'network-chaos-delay', "delay"
         return None, None, None
+    
+    def _smooth_data(data_df):
+        # handle inf
+        data_df = data_df.replace([np.inf, -np.inf], np.nan)
+        # handle na
+        data_df = data_df.fillna(method="ffill")
+        data_df = data_df.fillna(0)
+        return data_df
 
     """Prepare the LLM Ref Stack dataset from the local root path."""
     local_path = "data"
@@ -190,7 +295,7 @@ def prepare_llm_ref_stack_dataset(local_root_path, dataset_name):
         if not os.path.isdir(item_path) or item.startswith('.'):
             continue
 
-        anomaly_type, fault_name, fault_name_short = _extract_anomaly_type(item)
+        anomaly_type, _, fault_name_short = _extract_anomaly_type(item)
         if not anomaly_type:
             continue
 
@@ -213,24 +318,33 @@ def prepare_llm_ref_stack_dataset(local_root_path, dataset_name):
             new_data_df = pd.merge(data_df, latency_df, on="time")
             new_data_df["time"] = pd.to_datetime(new_data_df["time"]).astype("int64") // 10**9
             new_data_df = new_data_df.loc[:, ~new_data_df.columns.str.contains('^Unnamed')]
+            new_data_df = _smooth_data(new_data_df)
             new_data_df.to_csv(new_iter_path.joinpath('data.csv'), index=False)
+            ### prepare log data
+            logs_df = pd.read_json(exp_dir_path.parent.joinpath('loki-logs.json'))
+            logs_df = _transform_logs(logs_df)
+            logs_df.to_csv(new_iter_path.joinpath('logs.csv'), index=False)
+            logts_df = _create_logts_infos(logs_df, window_size_ms=5000)
+            logts_df.to_csv(new_iter_path.joinpath('logts.csv'), index=False)
             ### prepare trace data
             traces_df = pd.read_csv(exp_dir_path.parent.joinpath('deepflow-traces-request-list.csv'))
             traces_df = _transform_traces(data_df, traces_df)
             traces_df.to_csv(new_iter_path.joinpath('traces.csv'), index=False)
+            tracets_lat_df = _create_tracets_infos(traces_df, window_size_ms=5000, success=True)
+            tracets_lat_df.to_csv(new_iter_path.joinpath('tracets_lat.csv'), index=False)
+            tracets_err_df = _create_tracets_infos(traces_df, window_size_ms=5000, success=False)
+            tracets_err_df.to_csv(new_iter_path.joinpath('tracets_err.csv'), index=False)
             ### Copy mpg data
             shutil.copy(exp_dir_path.joinpath('mpg.csv'), new_iter_path.joinpath('mpg.csv'))
             ### Copy detailed latency data
-            shutil.copy(exp_dir_path.joinpath('latency_merged_90.csv'), new_iter_path.joinpath('latency_merged_90.csv'))
+            latency_df = pd.read_csv(exp_dir_path.joinpath('latency_merged_90.csv'))
+            latency_df = _smooth_data(latency_df)
+            latency_df.to_csv(new_iter_path.joinpath('latency_merged_90.csv'), index=False)
             ### prepare injection time
-            # Load JSON data from file
             with open(exp_dir_path.parent.joinpath('apply_result_chaos_anomaly_injection.json'), 'r') as f:
                 data = json.load(f)
-            # Extract creationTimestamp
             timestamp_str = data["result"]["metadata"]["creationTimestamp"]
-            # Convert to epoch time (UTC)
             dt = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")
-            # Write to file
             with open(new_iter_path.joinpath('inject_time.txt'), "w") as f:
                 f.write(str(int(dt.timestamp())) + "\n")
 ###################################################

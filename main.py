@@ -38,6 +38,7 @@ from RCAEval.utility import (
 if is_py312():
     from RCAEval.e2e import (
         baro,
+        mmbaro,
         causalrca,
         circa,
         cloudranger,
@@ -67,6 +68,7 @@ if is_py312():
         microrca,
         microscope,
         monitorrank,
+        pdiagnose,
     )
 
 elif is_py38():
@@ -104,37 +106,10 @@ def prepare_data(args):
     # download dataset
     if "llm-ref-stack" in args.dataset:
         prepare_llm_ref_stack_dataset(args.dataset_root, args.dataset)
-    elif "online-boutique" in args.dataset or "re1-ob" in args.dataset:
-        download_online_boutique_dataset()
-    elif "sock-shop-1" in args.dataset:
-        download_sock_shop_1_dataset()
-    elif "sock-shop-2" in args.dataset or "re1-ss" in args.dataset:
-        download_sock_shop_2_dataset()
-    elif "train-ticket" in args.dataset or "re1-tt" in args.dataset:
-        download_train_ticket_dataset()
-    elif "re2" in args.dataset:
-        download_re2_dataset()
-    elif "re3" in args.dataset:
-        download_re3_dataset()
     else:
         raise Exception(f"{args.dataset} is not defined!")
 
-    DATASET_MAP = {
-        "online-boutique": "data/online-boutique",
-        "sock-shop-1": "data/sock-shop-1",
-        "sock-shop-2": "data/sock-shop-2",
-        "train-ticket": "data/train-ticket",
-        "re1-ob": "data/online-boutique",
-        "re1-ss": "data/sock-shop-2",
-        "re1-tt": "data/train-ticket",
-        "re2-ob": "data/RE2/RE2-OB",
-        "re2-ss": "data/RE2/RE2-SS",
-        "re2-tt": "data/RE2/RE2-TT",
-        "re3-ob": "data/RE3/RE3-OB",
-        "re3-ss": "data/RE3/RE3-SS",
-        "re3-tt": "data/RE3/RE3-TT"
-    }
-    dataset = DATASET_MAP.get(args.dataset, f"data/{args.dataset}")
+    dataset = f"data/{args.dataset}"
 
     # prepare input paths
     data_paths = list(glob.glob(os.path.join(dataset, "**/data.csv"), recursive=True))
@@ -185,14 +160,8 @@ def process(data_path, args, result_path):
     # remove lat-50, only selecte lat-90 
     data = data.loc[:, ~data.columns.str.endswith("_latency-50")]
     
-    if "mm-tt" in data_path:
-        time_col = data["time"]
-        data = data.loc[:, data.columns.str.startswith("ts-")]
-        data["time"] = time_col
-        
     # handle inf
     data = data.replace([np.inf, -np.inf], np.nan)
-
     # handle na
     data = data.fillna(method="ffill")
     data = data.fillna(0)
@@ -220,7 +189,6 @@ def process(data_path, args, result_path):
     # == Get SLI ===
     sli = None
     if "llm-ref-stack" in data_path:
-        data = data.drop(columns=[col for col in data.columns if col.endswith('_ctn_gpu')])
         data = data.drop(columns=[col for col in data.columns if "_pod_" in col])
         data = data.drop(columns=[col for col in data.columns if "_node_" in col])
         data = data.drop(columns=[col for col in data.columns if "unknown" in col])

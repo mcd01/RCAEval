@@ -38,7 +38,7 @@ class MicroRCA(RootCauseAnalysis):
     def _svc_personalization(self, svc, anomaly_graph, baseline_df):
         df = pd.read_csv(self.base_dir.joinpath("data.csv"))
         df = df.loc[:, df.columns.str.contains(svc)]
-        ctn_cols = ['ctn_cpu', 'ctn_network', 'ctn_memory']
+        ctn_cols = ['ctn_cpu', 'ctn_network', 'ctn_memory', 'ctn_gpu']
         max_corr = 0.01
         metric = 'ctn_cpu'
         for col in ctn_cols:

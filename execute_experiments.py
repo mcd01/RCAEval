@@ -6,8 +6,12 @@ if __name__ == "__main__":
     DATASET = "llm-ref-stack-dp"
     DATASET_ROOT = "/app/data_raw"
 
-    # Reproduce ASE paper experiments / the metric experiments for RCAEval paper
-    ase_methods = [
+###################################################
+##########    ### METRIC METHODS ##################
+###################################################
+    metric_methods = []
+
+    metric_methods += [
         "dummy",
         "pc_pagerank",
         "pc_randomwalk",
@@ -17,43 +21,42 @@ if __name__ == "__main__":
         "granger_randomwalk",
         "lingam_pagerank",
         "lingam_randomwalk",
-        # "ges_pagerank", apparently legacy
-        # "ges_randomwalk", apparently legacy
         "ntlr_pagerank",
         "ntlr_randomwalk",
-        "causalrca",
         "causalai",
-        # "run", # fix later, currently not working due to short time series, and generally annoying
         "microcause",
         "e_diagnosis",
         "baro",
         "rcd",
         "circa",
         "nsigma",
+        "causalrca",
     ]
-    # Now also do the experiments for MicroRCA, MicroScope, and MonitorRank
-    new_methods = [
+    metric_methods += [
         "microrca",
         "microscope",
         "monitorrank",
     ]
     
-    for method in ase_methods + new_methods:
+    for method in metric_methods:
         try:
             print(f"[Data-Source=Metric] Running {method}...")
             args = Namespace(
                 method=method,
                 dataset=DATASET,
                 dataset_root=DATASET_ROOT,
-                length=20,
+                length=60,
                 tdelta=0,
                 test=False
                 )
             main(args)
         except Exception as e:
             print(f"[Data-Source=Metric] Error running {method}: {e}")
+            traceback.print_exc()
 
-    # now trace methods and multi-source methods from WWW paper
+###################################################
+############### TRACE METHODS #####################
+###################################################
     trace_methods = [
         "microrank",
         "tracerca"
@@ -65,11 +68,34 @@ if __name__ == "__main__":
                 method=method,
                 dataset=DATASET,
                 dataset_root=DATASET_ROOT,
-                length=20,
+                length=60,
                 tdelta=0,
                 test=False
             )
             main(args)
         except Exception as e:
             print(f"[Data-Source=Trace] Error running {method}: {e}")
+            traceback.print_exc()
+
+###################################################
+############### MULTI-SOURCE METHODS ##############
+###################################################
+    mm_methods = [
+        "pdiagnose",
+        "mmbaro"
+    ]
+    for method in mm_methods:
+        try:
+            print(f"[Data-Source=Multi-Source] Running {method}...")
+            args = Namespace(
+                method=method,
+                dataset=DATASET,
+                dataset_root=DATASET_ROOT,
+                length=60,
+                tdelta=0,
+                test=False
+            )
+            main(args)
+        except Exception as e:
+            print(f"[Data-Source=Multi-Source] Error running {method}: {e}")
             traceback.print_exc()

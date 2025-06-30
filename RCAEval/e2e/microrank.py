@@ -653,6 +653,7 @@ def microrank(data, inject_time=None, dataset=None, args=None, **kwargs):
 
     normal_df  = span_df[span_df["startTime"] + span_df["duration"] < inject_time]
     normal_slo = get_operation_slo(normal_df)
+
     normal_traceid = normal_df["traceID"].unique()
 
     anomal_df  = span_df[span_df["startTime"] + span_df["duration"] >= inject_time]

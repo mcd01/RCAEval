@@ -24,10 +24,8 @@ def rca(func):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            from RCAEval.io.time_series import preprocess
-            data = preprocess(data=args[0], dataset=kwargs.get("dataset"), dk_select_useful=False)
-            dummy = data.columns.to_list()
-            return {"adj": [], "node_names": dummy, "ranks": dummy}
+            print(f"Error in RCA method {func.__name__}, will use dummy RCA: {e}")
+            return dummy(*args, **kwargs)
     return wrapper
 
 if is_py310() or is_py312():
@@ -58,6 +56,7 @@ if is_py310() or is_py312():
     from .mscred import mscred
     from .tracerca import tracerca
     from .extra_methods import microrca, microscope, monitorrank
+    from .pdiagnose import pdiagnose
 else:
     from .rcd import rcd
     from .mmrcd import mmrcd

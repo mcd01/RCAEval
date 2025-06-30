@@ -28,14 +28,18 @@ RUN apt-get update && \
 # Set JAVA_HOME environment variable
 ENV JAVA_HOME=/usr/lib/jvm/default-java
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
+ENV UV_LINK_MODE=copy
 
 COPY . .
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv venv
 
-RUN --mount=type=cache,target=/root/.cache/uv uv pip install -e .[${INSTALLATION_TAG}]
-RUN --mount=type=cache,target=/root/.cache/uv uv pip install git+https://github.com/salesforce/causalai.git
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install -e .[${INSTALLATION_TAG}]
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install git+https://github.com/salesforce/causalai.git
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     if [ "${INSTALLATION_TAG}" = "rcd" ]; then \
