@@ -107,7 +107,7 @@ class MicroRCA(RootCauseAnalysis):
                     data = alpha
                 else:
                     normal_edge = u + '_' + v
-                    data = baseline_df[v].corr(latency_df[normal_edge])
+                    data = baseline_df[v].corr(latency_df[normal_edge] if normal_edge in latency_df.columns else pd.Series(0, index=latency_df.index))
 
                 # It is possible that the correlation is corrupted, so we set it to zero
                 # This is to avoid the impact of the anomaly on the overall graph
@@ -131,7 +131,7 @@ class MicroRCA(RootCauseAnalysis):
                         data, _ = self._node_weight(u, anomaly_graph, baseline_df)
                     else:
                         normal_edge = u + '_' + v
-                        data = baseline_df[u].corr(latency_df[normal_edge])
+                        data = baseline_df[u].corr(latency_df[normal_edge] if normal_edge in latency_df.columns else pd.Series(0, index=latency_df.index))
 
                 # It is possible that the correlation is corrupted, so we set it to zero
                 # This is to avoid the impact of the anomaly on the overall graph

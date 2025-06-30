@@ -21,7 +21,7 @@ class RootCauseAnalysis:
     def pagerank(self, anomaly_graph, personalization):
         max_retries = 10
         retry_count = 0
-        while retry_count < max_retries:
+        while True:
             try:
                 anomaly_score = nx.pagerank(
                     anomaly_graph,
@@ -32,6 +32,7 @@ class RootCauseAnalysis:
                 anomaly_score = sorted(anomaly_score.items(), key=lambda x: x[1], reverse=True)
                 return anomaly_score
             except nx.exception.PowerIterationFailedConvergence as e:
+                if retry_count >= max_retries:
+                    raise e
                 retry_count += 1
                 time.sleep(1)
-        raise Exception("Failed to compute pagerank")

@@ -4,6 +4,7 @@ warnings.filterwarnings("ignore")
 
 import numpy as np
 import pandas as pd
+import networkx as nx
 from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from RCAEval.io.time_series import (
@@ -23,9 +24,12 @@ def rca(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except Exception as e:
-            print(f"Error in RCA method {func.__name__}, will use dummy RCA: {e}")
+        except nx.exception.PowerIterationFailedConvergence as e:
+            print(f"Convergence Error in RCA method {func.__name__}, will use dummy RCA: {e}")
             return dummy(*args, **kwargs)
+        except Exception as e:
+            print(f"Error in RCA method {func.__name__}: {e}")
+            raise e
     return wrapper
 
 if is_py310() or is_py312():

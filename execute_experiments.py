@@ -21,8 +21,7 @@ if __name__ == "__main__":
         "granger_randomwalk",
         "lingam_pagerank",
         "lingam_randomwalk",
-        "ntlr_pagerank",
-        "ntlr_randomwalk",
+        "causalrca",
         "causalai",
         "microcause",
         "e_diagnosis",
@@ -30,7 +29,6 @@ if __name__ == "__main__":
         "rcd",
         "circa",
         "nsigma",
-        "causalrca",
     ]
     metric_methods += [
         "microrca",
