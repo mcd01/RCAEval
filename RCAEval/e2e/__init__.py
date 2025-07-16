@@ -4,6 +4,8 @@ warnings.filterwarnings("ignore")
 
 import numpy as np
 import pandas as pd
+import networkx as nx
+import statsmodels
 from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from RCAEval.io.time_series import (
@@ -23,18 +25,22 @@ def rca(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
+        except nx.exception.PowerIterationFailedConvergence as e:
+            print(f"Convergence Error in RCA method {func.__name__}, will use dummy RCA: {e}")
+            return dummy(*args, **kwargs)
+        except statsmodels.tools.sm_exceptions.InfeasibleTestError as e:
+            print(f"Infeasible Test Error in RCA method {func.__name__}, will use dummy RCA: {e}")
+            return dummy(*args, **kwargs)
         except Exception as e:
-            from RCAEval.io.time_series import preprocess
-            data = preprocess(data=args[0], dataset=kwargs.get("dataset"), dk_select_useful=False)
-            dummy = data.columns.to_list()
-            return {"adj": [], "node_names": dummy, "ranks": dummy}
+            print(f"Error in RCA method {func.__name__}: {e}")
+            raise e
     return wrapper
 
 if is_py310() or is_py312():
     try:
         from .causalai import causalai
     except Exception as e:
-        pass
+        print(f"Error importing causalai: {e}")
     from .baro import baro, mmbaro, mmnsigma
     from .causalrca import causalrca
     from .circa import circa
@@ -57,6 +63,8 @@ if is_py310() or is_py312():
     from .run import run
     from .mscred import mscred
     from .tracerca import tracerca
+    from .extra_methods import microrca, microscope, monitorrank
+    from .pdiagnose import pdiagnose
 else:
     from .rcd import rcd
     from .mmrcd import mmrcd

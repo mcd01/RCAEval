@@ -1,4 +1,5 @@
 import os
+import pathlib
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -60,20 +61,18 @@ def baro(
     }
     
     
-def mmnsigma(data, inject_time=None, dataset=None, num_loop=None, sli=None, anomalies=None, **kwargs):
+def mmnsigma(data, inject_time=None, dataset=None, num_loop=None, sli=None, args=None, anomalies=None, **kwargs):
     scaler_function = kwargs.get("scaler_function", StandardScaler) 
 
-    metric = data["metric"]
-    logs = data["logs"]
-    logts = data["logts"]
-    traces = data["traces"]
-    traces_err = data["tracets_err"]
-    traces_lat = data["tracets_lat"]
-    cluster_info = data["cluster_info"]
+    metric = data
+    logs = pd.read_csv(pathlib.Path(args.data_path).parent.joinpath("logs.csv"))
+    logts = pd.read_csv(pathlib.Path(args.data_path).parent.joinpath("logts.csv"))
+    traces = pd.read_csv(pathlib.Path(args.data_path).parent.joinpath("traces.csv"))
+    traces_err = pd.read_csv(pathlib.Path(args.data_path).parent.joinpath("tracets_err.csv"))
+    traces_lat = pd.read_csv(pathlib.Path(args.data_path).parent.joinpath("tracets_lat.csv"))
+    cluster_info = None
     
     # ==== PREPARE DATA ====
-    # the metric is currently sampled for 1 seconds, resample for 15s by just take 1 point every 15 points
-    metric = metric.iloc[::15, :]
 
     # == metric ==
     normal_metric = metric[metric["time"] < inject_time]
@@ -90,21 +89,19 @@ def mmnsigma(data, inject_time=None, dataset=None, num_loop=None, sli=None, anom
     anomal_logts = logts[logts["time"] >= inject_time].drop(columns=["time"])
 
     # == traces_err ==
-    if dataset == "mm-tt" or dataset == "mm-ob":
-        traces_err = traces_err.fillna(method='ffill')
-        traces_err = traces_err.fillna(0)
-        traces_err = drop_constant(traces_err)
+    traces_err = traces_err.fillna(method='ffill')
+    traces_err = traces_err.fillna(0)
+    traces_err = drop_constant(traces_err)
 
-        normal_traces_err = traces_err[traces_err["time"] < inject_time].drop(columns=["time"])
-        anomal_traces_err = traces_err[traces_err["time"] >= inject_time].drop(columns=["time"])
+    normal_traces_err = traces_err[traces_err["time"] < inject_time].drop(columns=["time"])
+    anomal_traces_err = traces_err[traces_err["time"] >= inject_time].drop(columns=["time"])
     
      # == traces_lat ==
-    if dataset == "mm-tt" or dataset == "mm-ob":
-        traces_lat = traces_lat.fillna(method='ffill')
-        traces_lat = traces_lat.fillna(0)
-        traces_lat = drop_constant(traces_lat)
-        normal_traces_lat = traces_lat[traces_lat["time"] < inject_time].drop(columns=["time"])
-        anomal_traces_lat = traces_lat[traces_lat["time"] >= inject_time].drop(columns=["time"])
+    traces_lat = traces_lat.fillna(method='ffill')
+    traces_lat = traces_lat.fillna(0)
+    traces_lat = drop_constant(traces_lat)
+    normal_traces_lat = traces_lat[traces_lat["time"] < inject_time].drop(columns=["time"])
+    anomal_traces_lat = traces_lat[traces_lat["time"] >= inject_time].drop(columns=["time"])
     
     # ==== PROCESS ====
     ranks = []
@@ -132,26 +129,24 @@ def mmnsigma(data, inject_time=None, dataset=None, num_loop=None, sli=None, anom
         ranks.append((col, score))
 
     # == traces_err ==
-    if dataset == "mm-tt" or dataset == "mm-ob":
-        for col in normal_traces_err.columns:
-            a = normal_traces_err[col].to_numpy()[:-2]
-            b = anomal_traces_err[col].to_numpy()
-                
-            scaler = scaler_function().fit(a.reshape(-1, 1))
-            zscores = scaler.transform(b.reshape(-1, 1))[:, 0]
-            score = max(zscores)
-            ranks.append((col, score))
+    for col in normal_traces_err.columns:
+        a = normal_traces_err[col].to_numpy()[:-2]
+        b = anomal_traces_err[col].to_numpy()
+            
+        scaler = scaler_function().fit(a.reshape(-1, 1))
+        zscores = scaler.transform(b.reshape(-1, 1))[:, 0]
+        score = max(zscores)
+        ranks.append((col, score))
    
     # == traces_lat ==
-    if dataset == "mm-tt" or dataset == "mm-ob":
-        for col in normal_traces_lat.columns:
-            a = normal_traces_lat[col].to_numpy()
-            b = anomal_traces_lat[col].to_numpy()
+    for col in normal_traces_lat.columns:
+        a = normal_traces_lat[col].to_numpy()
+        b = anomal_traces_lat[col].to_numpy()
 
-            scaler = scaler_function().fit(a.reshape(-1, 1))
-            zscores = scaler.transform(b.reshape(-1, 1))[:, 0]
-            score = max(zscores)
-            ranks.append((col, score))
+        scaler = scaler_function().fit(a.reshape(-1, 1))
+        zscores = scaler.transform(b.reshape(-1, 1))[:, 0]
+        score = max(zscores)
+        ranks.append((col, score))
 
     ranks = sorted(ranks, key=lambda x: x[1], reverse=True)
     if kwargs.get("verbose") is True:
@@ -165,11 +160,12 @@ def mmnsigma(data, inject_time=None, dataset=None, num_loop=None, sli=None, anom
     }
     
 
-def mmbaro(data, inject_time=None, dataset=None, num_loop=None, sli=None, anomalies=None, **kwargs):
+def mmbaro(data, inject_time=None, dataset=None, sli=None, args=None, **kwargs):
     return mmnsigma(
         data=data,
         inject_time=inject_time,
         dataset=dataset,
         sli=sli,
+        args=args,
         scaler_function=RobustScaler, **kwargs
     )

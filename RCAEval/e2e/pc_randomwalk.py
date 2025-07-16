@@ -1,3 +1,4 @@
+import numpy as np
 from RCAEval.graph_construction.fci import fci_default
 from RCAEval.graph_construction.granger import granger
 from RCAEval.graph_construction.lingam import DirectLiNGAM, ICALiNGAM
@@ -62,6 +63,7 @@ def fci_randomwalk(data, inject_time=None, dataset=None, n_iter=None, **kwargs):
         n_iter = len(node_names)
 
     adj = fci_default(data)
+    adj = np.sign(adj).astype(int)
     ranks = random_walk(adj, node_names, num_loop=n_iter)
     ranks = sorted(ranks, key=lambda x: x[1], reverse=True)
     ranks = [x[0] for x in ranks]

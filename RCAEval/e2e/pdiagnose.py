@@ -1,4 +1,5 @@
 import os
+import pathlib
 import sys
 import csv
 import json
@@ -46,21 +47,17 @@ def get_operation_slo(span_df):
     return operation_slo
 
 
-def main():
+def pdiagnose(data, inject_time=None, dataset=None, args=None, **kwargs):
     ALPHA=5
     T=10
     K=2
 
-    metric_df = pd.read_csv("./data/mm-ob/checkoutservice_cpu/1/simple_metrics.csv")
-    log_df = pd.read_csv("./data/mm-ob/checkoutservice_cpu/1/logs.csv")
-    logts_df = pd.read_csv("./data/mm-ob/checkoutservice_cpu/1/logts.csv")
-    span_df = pd.read_csv("./data/mm-ob/checkoutservice_cpu/1/traces.csv")
+    metric_df = data
+    log_df = pd.read_csv(pathlib.Path(args.data_path).parent.joinpath("logs.csv"))
+    logts_df = pd.read_csv(pathlib.Path(args.data_path).parent.joinpath("logts.csv"))
+    span_df = pd.read_csv(pathlib.Path(args.data_path).parent.joinpath("traces.csv"))
     span_df["methodName"] = span_df["methodName"].fillna(span_df["operationName"])
     span_df["operation"] = span_df["serviceName"] + "_" + span_df["methodName"]
-
-    with open("./data/mm-ob/checkoutservice_cpu/1/inject_time.txt") as f:
-        inject_time = int(f.readline())
-        # inject_time = int(f.readline()) * 1_000_000
     
     # for metrics
     normal_metric_df = metric_df[metric_df["time"] < inject_time]
@@ -79,7 +76,8 @@ def main():
     
     # add score for each service using metric
     for k, v in metric_q.items():
-        s, m = k.split("_")
+        parts = k.split("_")
+        s, m = parts[0], "_".join(parts[1:])
         service_dict[s] += ALPHA * v
 
 
@@ -121,8 +119,9 @@ def main():
     # print(json.dumps(service_dict, indent=2, sort_keys=True))
     rank_list = [(k, v) for k, v in service_dict.items()]
     rank_list.sort(key=lambda x: x[1], reverse=True)
-    print(rank_list)
-
+    return {
+        "ranks": [x[0] for x in rank_list],
+    }
 
 
 if __name__ == "__main__":

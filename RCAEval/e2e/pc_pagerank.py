@@ -29,7 +29,12 @@ def pc_pagerank(
     adj = np.asarray(nx.to_numpy_matrix(G, nodelist=nodes))
 
     pagerank = PageRank()
-    scores = pagerank.fit_transform(adj.T)
+    # since v0.32 of scikit-network, fit_transform is deprecated, use fit_predict instead
+    if hasattr(pagerank, "fit_transform"):
+        scores = pagerank.fit_transform(adj.T)
+    else:
+        scores = pagerank.fit_predict(adj.T)
+    
     ranks = list(zip(node_names, scores))
     ranks = sorted(ranks, key=lambda x: x[1], reverse=True)
     ranks = [x[0] for x in ranks]
@@ -52,7 +57,12 @@ def cmlp_pagerank(
     adj = cmlp(data, max_iter=20000)
 
     pagerank = PageRank()
-    scores = pagerank.fit_transform(adj.T)
+    # since v0.32 of scikit-network, fit_transform is deprecated, use fit_predict instead
+    if hasattr(pagerank, "fit_transform"):
+        scores = pagerank.fit_transform(adj.T)
+    else:
+        scores = pagerank.fit_predict(adj.T)
+
     ranks = list(zip(node_names, scores))
     ranks = sorted(ranks, key=lambda x: x[1], reverse=True)
     ranks = [x[0] for x in ranks]
@@ -73,8 +83,14 @@ def ntlr_pagerank(
     node_names = data.columns.to_list()
 
     adj = notears_low_rank(data)
+    
     pagerank = PageRank()
-    scores = pagerank.fit_transform(adj.T)
+    # since v0.32 of scikit-network, fit_transform is deprecated, use fit_predict instead
+    if hasattr(pagerank, "fit_transform"):
+        scores = pagerank.fit_transform(adj.T)
+    else:
+        scores = pagerank.fit_predict(adj.T)
+
     ranks = list(zip(node_names, scores))
     ranks = sorted(ranks, key=lambda x: x[1], reverse=True)
     ranks = [x[0] for x in ranks]
