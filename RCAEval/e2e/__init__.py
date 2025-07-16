@@ -5,6 +5,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 import networkx as nx
+import statsmodels
 from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from RCAEval.io.time_series import (
@@ -26,6 +27,9 @@ def rca(func):
             return func(*args, **kwargs)
         except nx.exception.PowerIterationFailedConvergence as e:
             print(f"Convergence Error in RCA method {func.__name__}, will use dummy RCA: {e}")
+            return dummy(*args, **kwargs)
+        except statsmodels.tools.sm_exceptions.InfeasibleTestError as e:
+            print(f"Infeasible Test Error in RCA method {func.__name__}, will use dummy RCA: {e}")
             return dummy(*args, **kwargs)
         except Exception as e:
             print(f"Error in RCA method {func.__name__}: {e}")

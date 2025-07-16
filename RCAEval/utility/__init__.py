@@ -268,9 +268,11 @@ def prepare_llm_ref_stack_dataset(local_root_path, dataset_name):
         if 'cpu-stress' in folder_name:
             return 'cpu-stress', 'stress-chaos-cpu', "cpu"
         elif 'memory-stress' in folder_name:
-            return 'memory-stress', 'stress-chaos-memory', "mem"
+            return 'memory-stress', 'stress-chaos-memory', "memory"
         elif 'network-stress' in folder_name:
-            return 'network-stress', 'network-chaos-delay', "delay"
+            return 'network-stress', 'network-chaos-delay', "network"
+        elif 'gpu-stress' in folder_name:
+            return 'gpu-stress', 'stress-chaos-gpu', "gpu"
         return None, None, None
     
     def _smooth_data(data_df):

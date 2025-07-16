@@ -79,8 +79,8 @@ if __name__ == "__main__":
 ############### MULTI-SOURCE METHODS ##############
 ###################################################
     mm_methods = [
-        "pdiagnose",
-        "mmbaro"
+        "mmbaro",
+        "pdiagnose"
     ]
     for method in mm_methods:
         try:

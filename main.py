@@ -257,7 +257,8 @@ def run_evaluation(data_paths, args, result_path, report_path):
     s_evaluator_all = Evaluator()
     s_evaluator_cpu = Evaluator()
     s_evaluator_mem = Evaluator()
-    s_evaluator_lat = Evaluator()
+    s_evaluator_net = Evaluator()
+    s_evaluator_gpu = Evaluator()
 
     for service in services:
         for fault in faults:
@@ -293,14 +294,17 @@ def run_evaluation(data_paths, args, result_path, report_path):
                         s_evaluator_cpu.add_case(ranks=s_ranks, answer=Node(service, "unknown"))
                         s_evaluator_all.add_case(ranks=s_ranks, answer=Node(service, "unknown"))
 
-                    elif fault == "mem":
+                    elif fault == "memory":
                         s_evaluator_mem.add_case(ranks=s_ranks, answer=Node(service, "unknown"))
                         s_evaluator_all.add_case(ranks=s_ranks, answer=Node(service, "unknown"))
 
-                    elif fault == "delay":
-                        s_evaluator_lat.add_case(ranks=s_ranks, answer=Node(service, "unknown"))
+                    elif fault == "network":
+                        s_evaluator_net.add_case(ranks=s_ranks, answer=Node(service, "unknown"))
                         s_evaluator_all.add_case(ranks=s_ranks, answer=Node(service, "unknown"))
 
+                    elif fault == "gpu":
+                        s_evaluator_gpu.add_case(ranks=s_ranks, answer=Node(service, "unknown"))
+                        s_evaluator_all.add_case(ranks=s_ranks, answer=Node(service, "unknown"))
 
             eval_data["service-fault"].append(f"{service}_{fault}")
             eval_data["top_1_service"].append(s_evaluator.accuracy(1))
@@ -311,8 +315,9 @@ def run_evaluation(data_paths, args, result_path, report_path):
     print(f"--- Evaluation results for '{args.method}' ---")
     for name, s_evaluator in [
         ("cpu", s_evaluator_cpu),
-        ("mem", s_evaluator_mem),
-        ("delay", s_evaluator_lat),
+        ("memory", s_evaluator_mem),
+        ("network", s_evaluator_net),
+        ("gpu", s_evaluator_gpu),
     ]:
         eval_data["service-fault"].append(f"overall_{name}")
         eval_data["top_1_service"].append(s_evaluator.accuracy(1))

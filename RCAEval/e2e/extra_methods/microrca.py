@@ -166,6 +166,17 @@ class MicroRCA(RootCauseAnalysis):
                 anomaly_graph.remove_edge(u,v)
                 anomaly_graph.add_edge(v,u,weight=d['weight'])
 
+        # Check if personalization sum is zero and handle it
+        personalization_sum = sum(personalization.values())
+        if personalization_sum == 0:
+            # If all personalization values are zero, use uniform distribution
+            num_nodes = len(personalization)
+            if num_nodes > 0:
+                uniform_value = 1.0 / num_nodes
+                personalization = {node: uniform_value for node in personalization.keys()}
+            else:
+                # If no nodes in personalization, use no personalization
+                personalization = None
         return self.pagerank(anomaly_graph, personalization)
 
 
